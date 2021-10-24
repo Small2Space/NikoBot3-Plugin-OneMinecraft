@@ -9,6 +9,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.DatagramSocket;
+import java.net.ServerSocket;
 
 public class Util {
 
@@ -98,5 +100,32 @@ public class Util {
 	public static String replacetoRunning(String str) {
 		String[] strLs = str.split(":");
 		return strLs[0]+":arrows_counterclockwise:"+strLs[2];
+	}
+	
+	public static boolean portisAvailable(int port) {
+	    ServerSocket ss = null;
+	    DatagramSocket ds = null;
+	    try {
+	        ss = new ServerSocket(port);
+	        ss.setReuseAddress(true);
+	        ss.close();
+	        ds = new DatagramSocket(port);
+	        ds.setReuseAddress(true);
+	        ds.close();
+	        return true;
+	    } catch (IOException e) {
+	    } finally {
+	        if (ds != null) {
+	            ds.close();
+	        }
+	        if (ss != null) {
+	            try {
+	                ss.close();
+	            } catch (IOException e) {
+	                /* should not be thrown */
+	            }
+	        }
+	    }
+	    return false;
 	}
 }
