@@ -4,12 +4,16 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 
-public class ContainerManager {
+import net.dv8tion.jda.api.entities.TextChannel;
+
+public class ContainerManager extends Thread{
 
 	//Containers
 	private ArrayList<Container> CTs = new ArrayList<Container>();
+	private TextChannel tc;
 	
-	public ContainerManager() {
+	public ContainerManager(TextChannel tc) {
+		this.tc = tc;
 		//意外重啟，恢復先前Container
 		recoveryContainer();
 		
@@ -30,6 +34,20 @@ public class ContainerManager {
 						e.printStackTrace();
 					}
 				}
+			}
+		}
+	}
+	
+	@Override
+	public void run() {
+		while(!MinecraftAUTO.dockerMode) {
+			try {
+				for(int i=0;i<CTs.size();i++)
+					if(CTs.get(i).processStdOutput.available()>0)
+						CTs.get(i).lock.notify();
+				Thread.sleep(100);
+			} catch (InterruptedException | IOException e) {
+				e.printStackTrace();
 			}
 		}
 	}

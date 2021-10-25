@@ -1,20 +1,25 @@
 package com.github.smallru8.NikoBot3.MinecraftAUTO;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
-
 import java.util.Properties;
 import java.util.Random;
 
 import com.github.smallru8.NikoBot.Core;
+import com.github.smallru8.NikoBot3.MinecraftAUTO.event.EventSender;
 
-public class Container {
-
+public class Container extends Thread{
+	public Object lock = new Object();
+	private boolean runFlag = true;
+	
 	public int id = 0;//Random integer
 	public int port = 25565;
 	public String name = null;//Map name
@@ -30,6 +35,9 @@ public class Container {
 	
 	private Process process;
 	
+	public InputStream processStdOutput;
+	public OutputStream processStdInput;
+	
 	/**
 	 * Create container
 	 * @param mapName
@@ -38,6 +46,7 @@ public class Container {
 	 * @throws IOException
 	 */
 	public Container(String mapName, String username, int port) throws FileNotFoundException, IOException {
+		super();
 		name = mapName;
 		owner = username;
 		id = new Random().nextInt();
@@ -77,29 +86,18 @@ public class Container {
 			status.setProperty("version", version);
 			status.store(new FileOutputStream(new File(CT_F,"oneMinecraft")), "");		
 			status.clear();
+			
 			//複製伺服器檔案到CT
-			//tc.sendMessage("Copy "+version+"server file to container...").queue();
-			//Listener.status2 = Util.replacetoRunning(Listener.status2);
-			//Listener.updateMsg(tc);
 			File serverFile = new File("Servers",version);
 			Util.copy(serverFile, CT_F);
-			//Listener.status2 = Util.replacetoDone(Listener.status2);
-			//Listener.updateMsg(tc);
 			
 			//複製地圖資料
-			//tc.sendMessage("Copy map data to container...").queue();
-			//Listener.status3 = Util.replacetoRunning(Listener.status3);
-			//Listener.updateMsg(tc);
 			File CT_World = new File(CT_F,"world");
 			File map = new File("MinecraftMap/"+name+"/world");
 			Util.copy(map, CT_World);
-			//Listener.status3 = Util.replacetoDone(Listener.status3);
-			//Listener.updateMsg(tc);
+
 			
 			//伺服器設定檔
-			//tc.sendMessage("Setting server properties...").queue();
-			//Listener.status4 = Util.replacetoRunning(Listener.status4);
-			//Listener.updateMsg(tc);
 			File serverProperties = new File("MinecraftMap/"+name+"/server.properties");
 			Util.copy(serverProperties, new File(CT_F,"server.properties"));
 			Properties serverP = new Properties();
@@ -107,13 +105,8 @@ public class Container {
 			serverP.setProperty("server-port", ""+this.port);
 			serverP.store(new FileOutputStream(new File(CT_F,"server.properties")), "");
 			serverP.clear();
-			//Listener.status4 = Util.replacetoDone(Listener.status4); 
-			//Listener.updateMsg(tc);
 			
 			//啟動檔
-			//tc.sendMessage("Generating launch script...").queue();
-			//Listener.status5 = Util.replacetoRunning(Listener.status5);
-			//Listener.updateMsg(tc);
 			try {
 				File f = new File(workDir+"/launch.sh");
 				if(Core.osType)
@@ -126,8 +119,7 @@ public class Container {
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			//Listener.status5 = Util.replacetoDone(Listener.status5);
-			//Listener.updateMsg(tc);
+
 		}
 	}
 	
@@ -138,6 +130,7 @@ public class Container {
 	 * @throws FileNotFoundException 
 	 */
 	public Container(int id, int port) throws FileNotFoundException, IOException {
+		super();
 		workDir += "/"+id;
 		File CT_F = new File(workDir);
 		Properties status = new Properties();
@@ -162,48 +155,76 @@ public class Container {
 		serverP.store(new FileOutputStream(new File(CT_F,"server.properties")), "");
 		serverP.clear();
 		
-		start();
+		startContainer();
 	}
 	
 	public String[] info() {
 		return new String[] {""+id,name,owner,version,""+port};
 	}
 	
-	public boolean start() {
-		if(name==null)
-			return false;
-		try {
-			File f;
-			if(Core.osType) {//windows
-				f = new File(workDir+"/launch.bat");
-				process = new ProcessBuilder(f.getAbsolutePath()).directory(new File(workDir)).redirectError(new File(workDir,"error.log")).redirectOutput(new File(workDir,"Output.log")).start();
-			}else{//linux
-				f = new File(workDir+"/launch.sh");
-				process = new ProcessBuilder("sh",f.getAbsolutePath()).directory(new File(workDir)).redirectError(new File(workDir,"error.log")).redirectOutput(new File(workDir,"Output.log")).start();
-			}
-			
-			OutputStream processOutputStream = process.getOutputStream();
-			processOutputStream.write("reload\n".getBytes());
-			processOutputStream.write("save-on\n".getBytes());
-			processOutputStream.flush();
-		} catch (IOException e) {
-			e.printStackTrace();
-			process.destroy();
-			return false;
+	@Override
+	public void run() {
+		while(runFlag) {
+			try {
+				synchronized (lock) {
+					String line = "";
+					BufferedReader br = new BufferedReader(new InputStreamReader(processStdOutput));
+					while((line=br.readLine())!=null) {
+						EventSender.containerOutput(id, line);
+					}
+					lock.wait();
+				}
+			} catch (InterruptedException | IOException e) {
+	            e.printStackTrace();
+	        }
 		}
-		return true;
 	}
 	
-	public void stop() {
-		OutputStream processOutputStream = process.getOutputStream();
-		try {
-			processOutputStream.write("stop\n".getBytes());
-			processOutputStream.flush();
-		} catch (IOException e) {
-			e.printStackTrace();
+	public boolean startContainer() {
+		if(name==null)
+			return false;
+		else if(!MinecraftAUTO.dockerMode) {
+			try {
+				File f;
+				if(Core.osType) {//windows
+					f = new File(workDir+"/launch.bat");
+					//process = new ProcessBuilder(f.getAbsolutePath()).directory(new File(workDir)).redirectError(new File(workDir,"error.log")).redirectOutput(new File(workDir,"Output.log")).start();
+					process = new ProcessBuilder(f.getAbsolutePath()).directory(new File(workDir)).redirectError(new File(workDir,"error.log")).start();
+					
+				}else{//linux
+					f = new File(workDir+"/launch.sh");
+					//process = new ProcessBuilder("sh",f.getAbsolutePath()).directory(new File(workDir)).redirectError(new File(workDir,"error.log")).redirectOutput(new File(workDir,"Output.log")).start();
+					process = new ProcessBuilder("sh",f.getAbsolutePath()).directory(new File(workDir)).redirectError(new File(workDir,"error.log")).start();
+				}
+				processStdOutput = process.getInputStream();
+				processStdInput = process.getOutputStream();
+				processStdInput.write("reload\n".getBytes());
+				processStdInput.write("save-on\n".getBytes());
+				processStdInput.flush();
+				start();
+			} catch (IOException e) {
+				e.printStackTrace();
+				process.destroy();
+				return false;
+			}
+			return true;
 		}
-		
-		process.destroy();
+		return false;
+	}
+	
+	public void stopContainer() {
+		if(!MinecraftAUTO.dockerMode) {
+			OutputStream processOutputStream = process.getOutputStream();
+			try {
+				processOutputStream.write("stop\n".getBytes());
+				processOutputStream.flush();
+				runFlag = false;
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
+			process.destroy();
+		}
 	}
 	
 }
