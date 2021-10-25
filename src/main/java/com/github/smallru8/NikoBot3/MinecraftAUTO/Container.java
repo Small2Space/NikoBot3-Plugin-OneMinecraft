@@ -18,7 +18,7 @@ import com.github.smallru8.NikoBot3.MinecraftAUTO.event.EventSender;
 
 public class Container extends Thread{
 	public Object lock = new Object();
-	private boolean runFlag = true;
+	public boolean runFlag = true;
 	
 	public int id = 0;//Random integer
 	public int port = 25565;
@@ -180,9 +180,9 @@ public class Container extends Thread{
 		}
 	}
 	
-	public boolean startContainer() {
+	public Container startContainer() {
 		if(name==null)
-			return false;
+			return null;
 		else if(!MinecraftAUTO.dockerMode) {
 			try {
 				File f;
@@ -205,14 +205,14 @@ public class Container extends Thread{
 			} catch (IOException e) {
 				e.printStackTrace();
 				process.destroy();
-				return false;
+				return null;
 			}
-			return true;
+			return this;
 		}
-		return false;
+		return null;
 	}
 	
-	public void stopContainer() {
+	public Container stopContainer() {
 		if(!MinecraftAUTO.dockerMode) {
 			OutputStream processOutputStream = process.getOutputStream();
 			try {
@@ -225,6 +225,21 @@ public class Container extends Thread{
 			
 			process.destroy();
 		}
+		
+		return this;
+	}
+	
+	/**
+	 * Delete container file
+	 * @return
+	 */
+	public Container deleteContainer() {
+		//Delete file
+		File dir = new File(workDir);
+		String[] fileLs = dir.list();
+		for(int i=0;i<fileLs.length;i++)
+			Util.deleteFile(new File(workDir));
+		return this;
 	}
 	
 }
