@@ -15,7 +15,7 @@ public class MinecraftAUTO implements PluginsInterface {
 	public static boolean dockerMode = false;
 	public static String workDir = "CT";
 	public static long chId;
-	public static String msgId = "";
+	public static long msgId;
 	public static int portMin = 25565;
 	public static int portMax = 25575;
 	public static long managerGroup;
@@ -54,7 +54,7 @@ public class MinecraftAUTO implements PluginsInterface {
 				p.load(new FileInputStream(new File("conf.d/MinecraftAUTO")));
 				dockerMode = p.getProperty("docker").equalsIgnoreCase("true");
 				chId = Long.parseLong(p.getProperty("channel","0"));
-				msgId = p.getProperty("msg", "0");
+				msgId = Long.parseLong(p.getProperty("msg","0"));
 				workDir = p.getProperty("workDir", "CT");
 				portMin = Integer.parseInt(p.getProperty("portMin", "25565"));
 				portMax = Integer.parseInt(p.getProperty("portMax", "25575"));
@@ -84,12 +84,12 @@ public class MinecraftAUTO implements PluginsInterface {
 		}
 	}
 
-	public static void setMsg(String id) {
+	public static void setMsg(long id) {
 		msgId = id;
 		Properties p = new Properties();
 		try {
 			p.load(new FileInputStream(new File("conf.d/MinecraftAUTO")));
-			p.setProperty("msg", id);
+			p.setProperty("msg", ""+id);
 			p.store(new FileOutputStream(new File("conf.d/MinecraftAUTO")), "");
 		} catch (IOException e) {
 			e.printStackTrace();

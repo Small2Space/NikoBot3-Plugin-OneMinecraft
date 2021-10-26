@@ -15,7 +15,7 @@ import net.dv8tion.jda.api.EmbedBuilder;
 import net.dv8tion.jda.api.entities.Message;
 
 public class Container{
-	public boolean runFlag = false;
+	private boolean runFlag = false;
 	
 	private Message msgInterface;
 	public long id = 0;//Random Long
@@ -190,7 +190,7 @@ public class Container{
 	}
 	
 	public boolean isRunning() {
-		return runFlag;
+		return runFlag&&process.isAlive();
 	}
 	
 	public Container startContainer() {
@@ -216,7 +216,8 @@ public class Container{
 				processStdInput.write("reload\n".getBytes());
 				processStdInput.write("save-on\n".getBytes());
 				processStdInput.flush();
-				//start();
+				
+				
 			} catch (IOException e) {
 				e.printStackTrace();
 				process.destroy();
@@ -229,7 +230,7 @@ public class Container{
 	}
 	
 	public Container stopContainer() {
-		if(!runFlag)//Already stop
+		if(!isRunning())//Already stop
 			return this;
 		if(!MinecraftAUTO.dockerMode) {
 			OutputStream processOutputStream = process.getOutputStream();
@@ -239,7 +240,6 @@ public class Container{
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			
 			process.destroy();
 		}
 		updateStatustoStop();
