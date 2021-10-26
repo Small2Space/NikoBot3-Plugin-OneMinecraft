@@ -19,7 +19,7 @@ public class Container{
 	
 	private Message msgInterface;
 	public long id = 0;//Random Long
-	public int port = 25565;
+	public int port = 0;
 	public String name = null;//Map name
 	public String owner = null;//username who is the container's owner
 	private String version = "1.8.4";//game version
@@ -42,8 +42,7 @@ public class Container{
 	 * @throws FileNotFoundException
 	 * @throws IOException
 	 */
-	public Container(Message msg, String mapName, String username, int port) throws FileNotFoundException, IOException {
-		super();
+	public Container(Message msg, String mapName, String username) throws FileNotFoundException, IOException {
 		name = mapName;
 		owner = username;
 		this.msgInterface = msg;
@@ -58,7 +57,6 @@ public class Container{
 			RAM = launchSetting.getProperty("RAM", "4G");
 			JVM_ARGUMENTS  = launchSetting.getProperty("JVM_ARGUMENTS", "");
 			version = launchSetting.getProperty("version", "1.8.4");
-			this.port = Integer.parseInt(launchSetting.getProperty("port", ""+port));
 			launchSetting.clear();
 			
 			if(version.matches("(1.1|1.2|1.3|1.4|1.5|1.6|1.7|1.8|1.9|1.10|1.11|1.12|1.13|1.14|1.15|1.16).*")) {
@@ -102,11 +100,6 @@ public class Container{
 			setTitle(":arrows_counterclockwise: Copy server.properties...");
 			File serverProperties = new File("MinecraftMap/"+name+"/server.properties");
 			Util.copy(serverProperties, new File(CT_F,"server.properties"));
-			Properties serverP = new Properties();
-			serverP.load(new FileInputStream(new File(CT_F,"server.properties")));
-			serverP.setProperty("server-port", ""+this.port);
-			serverP.store(new FileOutputStream(new File(CT_F,"server.properties")), "");
-			serverP.clear();
 			
 			//啟動檔
 			setTitle(":arrows_counterclockwise: Copy launch file...");
@@ -133,8 +126,7 @@ public class Container{
 	 * @throws IOException 
 	 * @throws FileNotFoundException 
 	 */
-	public Container(Message msg, int port) throws FileNotFoundException, IOException {
-		super();
+	public Container(Message msg) throws FileNotFoundException, IOException {
 		this.msgInterface = msg;
 		this.id = msg.getIdLong();
 		workDir += "/"+id;
@@ -147,23 +139,8 @@ public class Container{
 		owner = status.getProperty("owner");
 		version = status.getProperty("version");
 		status.clear();
-		
-		//Set static port
-		Properties launchSetting = new Properties();
-		launchSetting.load(new FileInputStream(new File("MinecraftMap/"+name+"/lanuch.yml")));
-		this.port = Integer.parseInt(launchSetting.getProperty("port", ""+port));
-		launchSetting.clear();
-		
-		//Set dynamic port
-		Properties serverP = new Properties();
-		serverP.load(new FileInputStream(new File(CT_F,"server.properties")));
-		serverP.setProperty("server-port", ""+this.port);
-		serverP.store(new FileOutputStream(new File(CT_F,"server.properties")), "");
-		serverP.clear();
-		
+			
 		updateStatustoDone();
-		
-		startContainer();
 	}
 	
 	public String[] info() {
@@ -193,13 +170,31 @@ public class Container{
 		return runFlag&&process.isAlive();
 	}
 	
-	public Container startContainer() {
+	public Container startContainer(int port) {
 		if(name==null)
 			return null;
-		else if(runFlag)//Already start
+		else if(isRunning())//Already start
 			return this;
 		else if(!MinecraftAUTO.dockerMode) {
 			try {
+				if(port!=-1) {
+					//Set static port
+					Properties launchSetting = new Properties();
+					launchSetting.load(new FileInputStream(new File("MinecraftMap/"+name+"/lanuch.yml")));
+					this.port = Integer.parseInt(launchSetting.getProperty("port", ""+port));
+					launchSetting.clear();
+					//Set dynamic port
+					Properties serverP = new Properties();
+					serverP.load(new FileInputStream(new File(workDir,"server.properties")));
+					serverP.setProperty("server-port", ""+this.port);
+					serverP.store(new FileOutputStream(new File(workDir,"server.properties")), "");
+					serverP.clear();
+				}
+				
+				String output = "Map: " + name + "\nOwner: " + owner + "\nPort: "+this.port;
+				msgInterface.editMessageEmbeds(new EmbedBuilder().setTitle(msgInterface.getEmbeds().get(0).getTitle()).setDescription(output).build()).queue();
+				
+				
 				File f;
 				if(Core.osType) {//windows
 					f = new File(workDir+"/launch.bat");

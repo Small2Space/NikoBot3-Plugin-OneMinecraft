@@ -28,7 +28,7 @@ public class ContainerManager{
 				if(port!=-1) {
 					tc.retrieveMessageById(fLs[i]).queue(message -> {
 						try {
-							CTs.add(new Container(message,port).startContainer());
+							CTs.add(new Container(message).startContainer(port));
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -44,31 +44,26 @@ public class ContainerManager{
 	 * @param owner
 	 */
 	public void addContainer(String mapName,String owner) {
-		try {
-			int port = findPort();
-			if(port==-1)
-				throw new Exception("No available port.");
-			//run: :arrow_forward:
-			//stop: :stop_button:
-			//loading: :arrows_counterclockwise:
-			String status = ":arrows_counterclockwise:";
-			String output = "Map: " + mapName + "\nOwner: " + owner + "\nPort: " + port;
-			EmbedBuilder embed = new EmbedBuilder().setColor(java.awt.Color.PINK).setTitle(status).setDescription(output);
-			tc.sendMessageEmbeds(embed.build()).queue(message -> {
-				new Thread(()->{
-					Container ct;
-					try {
-						ct = new Container(message,mapName,owner,port);
-						CTs.add(ct);
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}).start();
-			});
+		
+		//run: :arrow_forward:
+		//stop: :stop_button:
+		//loading: :arrows_counterclockwise:
+		String status = ":arrows_counterclockwise:";
+		String output = "Map: " + mapName + "\nOwner: " + owner + "\nPort: 0";
+		EmbedBuilder embed = new EmbedBuilder().setColor(java.awt.Color.PINK).setTitle(status).setDescription(output);
+		tc.sendMessageEmbeds(embed.build()).queue(message -> {
+			new Thread(()->{
+				Container ct;
+				try {
+					ct = new Container(message,mapName,owner);
+					CTs.add(ct);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}).start();
+		});
 			
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+
 	}
 	
 	/**
@@ -85,7 +80,7 @@ public class ContainerManager{
 	 * @param id
 	 */
 	public void startContainerbyId(Long id) {
-		findCTbyId(id).startContainer();
+		findCTbyId(id).startContainer(findPort());
 	}
 	
 	/**
