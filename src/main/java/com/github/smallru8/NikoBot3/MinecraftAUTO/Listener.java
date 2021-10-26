@@ -4,10 +4,13 @@ import java.awt.Color;
 import java.io.File;
 import java.util.Arrays;
 
+import com.github.smallru8.NikoBot.Core;
 import com.github.smallru8.NikoBot.Embed;
 
+import net.dv8tion.jda.api.entities.Role;
 import net.dv8tion.jda.api.entities.TextChannel;
 import net.dv8tion.jda.api.events.message.guild.GuildMessageReceivedEvent;
+import net.dv8tion.jda.api.events.message.react.MessageReactionAddEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 public class Listener extends ListenerAdapter{
@@ -107,5 +110,23 @@ public class Listener extends ListenerAdapter{
 		}
 	}
 	
+	
+	@Override
+	public void onMessageReactionAdd(MessageReactionAddEvent event) {
+		Role r = event.getGuild().getRoleById(MinecraftAUTO.managerGroup);
+		if(event.getUserIdLong()!=Core.botAPI.getSelfUser().getIdLong()&&event.getTextChannel().getIdLong()==MinecraftAUTO.chId&&(event.getMember().getRoles().contains(r)||event.getMember().isOwner())) {
+			long msgId = event.getMessageIdLong();
+			if(event.getReactionEmote().getEmoji().equals("▶")) {
+				event.getReaction().removeReaction(event.getUser()).queue();
+				MinecraftAUTO.CM.startContainerbyId(msgId);
+			}else if(event.getReactionEmote().getEmoji().equals("⏹")) {
+				event.getReaction().removeReaction(event.getUser()).queue();
+				MinecraftAUTO.CM.stopContainerbyId(msgId);
+			}else if(event.getReactionEmote().getEmoji().equals("🚫")&&!MinecraftAUTO.CM.findCTbyId(msgId).isRunning()) {
+				event.getReaction().removeReaction(event.getUser()).queue();
+				MinecraftAUTO.CM.delContainer(msgId);
+			}
+		}
+	}
 	
 }
